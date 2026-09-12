@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TruckersMP Tracker</title>
+  <meta name="description" content="Live TruckersMP server status, player lookup, events and game time tracker." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --bg-card: #121826;
+      --bg-elevated: #1a2234;
+      --border: #243049;
+      --text: #e8edf7;
+      --text-muted: #8b9bb8;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.35);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 12px;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(34, 197, 94, 0.06), transparent);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    nav {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.75rem;
+    }
+
+    .nav-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.55rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .nav-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .nav-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    section {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .refresh-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-card .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      letter-spacing: -0.02em;
+    }
+
+    .servers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .server-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .server-card:hover {
+      border-color: #3b82f680;
+      box-shadow: 0 0 24px rgba(59, 130, 246, 0.08);
+    }
+
+    .server-card.offline {
+      opacity: 0.65;
+    }
+
+    .server-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .server-name {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .server-short {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge.online {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+    }
+
+    .badge.offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
+    .badge.game {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+    }
+
+    .players-bar {
+      margin: 0.75rem 0 0.5rem;
+    }
+
+    .players-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 0.35rem;
+      color: var(--text-muted);
+    }
+
+    .players-info strong {
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    .progress {
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-fill.high {
+      background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+
+    .progress-fill.full {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+    }
+
+    .server-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+
+    .meta-tag {
+      font-size: 0.7rem;
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      padding: 0.2rem 0.5rem;
+      border-radius: 5px;
+    }
+
+    /* Player lookup */
+    .search-box {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .search-box input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-box button {
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 0 1.35rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    .search-box button:hover {
+      background: #2563eb;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .player-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: none;
+    }
+
+    .player-card.visible {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .player-header {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .player-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+
+    .player-name {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .player-id {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .player-group {
+      display: inline-block;
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .info-item {
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+    }
+
+    .info-item .label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .info-item .val {
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-top: 0.15rem;
+    }
+
+    .banned-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    /* Events */
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .event-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      transition: border-color 0.2s;
+    }
+
+    .event-card:hover {
+      border-color: #3b82f680;
+    }
+
+    .event-banner {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: var(--bg-elevated);
+    }
+
+    .event-info {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .event-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .event-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .event-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .event-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Game time */
+    .time-display {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+    }
+
+    .time-display .clock {
+      font-family: var(--mono);
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .time-display .sub {
+      color: var(--text-muted);
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .loading, .error, .empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted);
+    }
+
+    .error {
+      color: #fca5a5;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .player-header {
+        flex-direction: column;
+        text-align: center;
+      }
+      .event-banner {
+        width: 100%;
+        height: 100px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">🚛</div>
+        <div>
+          <h1>TruckersMP Tracker</h1>
+          <span>Live servers • Players • Events</span>
+        </div>
+      </div>
+      <div class="status-bar">
+        <div class="live-dot"></div>
+        <span id="last-update">Loading…</span>
+      </div>
+    </header>
+
+    <nav>
+      <button class="nav-btn active" data-section="servers">Servers</button>
+      <button class="nav-btn" data-section="player">Player Lookup</button>
+      <button class="nav-btn" data-section="events">Events</button>
+      <button class="nav-btn" data-section="time">Game Time</button>
+    </nav>
+
+    <!-- SERVERS -->
+    <section id="servers" class="active">
+      <div class="section-header">
+        <h2>Servers</h2>
+        <button class="refresh-btn" onclick="loadServers()">↻ Refresh</button>
+      </div>
+      <div class="stats-row" id="server-stats">
+        <div class="stat-card">
+          <div class="label">Total Players</div>
+          <div class="value" id="stat-players">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Online Servers</div>
+          <div class="value" id="stat-online">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">In Queue</div>
+          <div class="value" id="stat-queue">—</div>
+        </div>
+      </div>
+      <div class="servers-grid" id="servers-grid">
+        <div class="loading">Loading servers…</div>
+      </div>
+    </section>
+
+    <!-- PLAYER -->
+    <section id="player">
+      <div class="section-header">
+        <h2>Player Lookup</h2>
+      </div>
+      <div class="search-box">
+        <input type="text" id="player-input" placeholder="TruckersMP ID or SteamID64…" />
+        <button onclick="lookupPlayer()">Search</button>
+      </div>
+      <div id="player-result" class="player-card"></div>
+      <div id="player-error" class="error" style="display:none;"></div>
+    </section>
+
+    <!-- EVENTS -->
+    <section id="events">
+      <div class="section-header">
+        <h2>Events</h2>
+        <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
+      </div>
+      <div id="events-container">
+        <div class="loading">Loading events…</div>
+      </div>
+    </section>
+
+    <!-- GAME TIME -->
+    <section id="time">
+      <div class="section-header">
+        <h2>In-Game Time</h2>
+        <button class="refresh-btn" onclick="loadGameTime()">↻ Refresh</button>
+      </div>
+      <div class="time-display">
+        <div class="clock" id="game-clock">--:--</div>
+        <div class="sub">Approximate in-game time (may drift)</div>
+        <div class="sub" id="game-time-raw" style="margin-top:0.5rem;font-family:var(--mono);font-size:0.8rem;"></div>
+      </div>
+    </section>
+
+    <footer>
+      Data from the official <a href="https://truckersmp.com/developers/api" target="_blank" rel="noopener">TruckersMP API</a>.
+      Not affiliated with TruckersMP. · <a href="https://github.com/tmoneytalkss/truckersmp-tracker" target="_blank" rel="noopener">Source</a>
+    </footer>
+  </div>
+
+  <script>
+    const API = 'https://api.truckersmp.com/v2';
+
+    // Navigation
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.section).classList.add('active');
+      });
+    });
+
+    // Enter key for search
+    document.getElementById('player-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') lookupPlayer();
+    });
+
+    function setLastUpdate() {
+      const now = new Date();
+      document.getElementById('last-update').textContent =
+        'Updated ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function loadServers() {
+      const grid = document.getElementById('servers-grid');
+      try {
+        const res = await fetch(`${API}/servers`);
+        const data = await res.json();
+        if (data.error) throw new Error('API error');
+
+        const servers = data.response || [];
+        let totalPlayers = 0, onlineCount = 0, totalQueue = 0;
+
+        servers.forEach(s => {
+          if (s.online) {
+            onlineCount++;
+            totalPlayers += s.players || 0;
+            totalQueue += s.queue || 0;
+          }
+        });
+
+        document.getElementById('stat-players').textContent = totalPlayers.toLocaleString();
+        document.getElementById('stat-online').textContent = onlineCount;
+        document.getElementById('stat-queue').textContent = totalQueue.toLocaleString();
+
+        // Sort: online first, then by players desc
+        servers.sort((a, b) => {
+          if (a.online !== b.online) return b.online - a.online;
+          return (b.players || 0) - (a.players || 0);
+        });
+
+        grid.innerHTML = servers.map(s => {
+          const pct = s.maxplayers ? Math.min(100, Math.round((s.players / s.maxplayers) * 100)) : 0;
+          let fillClass = '';
+          if (pct >= 90) fillClass = 'full';
+          else if (pct >= 70) fillClass = 'high';
+
+          const tags = [];
+          if (s.promods) tags.push('ProMods');
+          if (s.event || s.specialEvent) tags.push('Event');
+          if (s.speedlimiter) tags.push('Speed Limiter');
+          if (!s.collisions) tags.push('No Collisions');
+          if (s.carsforplayers) tags.push('Cars');
+
+          return `
+            <div class="server-card ${s.online ? '' : 'offline'}">
+              <div class="server-top">
+                <div>
+                  <div class="server-name">${escapeHtml(s.name)}</div>
+                  <div class="server-short">${escapeHtml(s.shortname || '')}</div>
+                </div>
+                <div style="display:flex;gap:0.35rem;flex-wrap:wrap;justify-content:flex-end;">
+                  <span class="badge ${s.online ? 'online' : 'offline'}">${s.online ? 'Online' : 'Offline'}</span>
+                  <span class="badge game">${s.game || '—'}</span>
+                </div>
+              </div>
+              <div class="players-bar">
+                <div class="players-info">
+                  <span><strong>${(s.players || 0).toLocaleString()}</strong> / ${(s.maxplayers || 0).toLocaleString()}</span>
+                  ${s.queue > 0 ? `<span>Queue: <strong>${s.queue}</strong></span>` : ''}
+                </div>
+                <div class="progress">
+                  <div class="progress-fill ${fillClass}" style="width:${pct}%"></div>
+                </div>
+              </div>
+              ${tags.length ? `<div class="server-meta">${tags.map(t => `<span class="meta-tag">${t}</span>`).join('')}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+
+        setLastUpdate();
+      } catch (err) {
+        grid.innerHTML = `<div class="error">Failed to load servers. Please try again.</div>`;
+        console.error(err);
+      }
+    }
+
+    async function lookupPlayer() {
+      const input = document.getElementById('player-input').value.trim();
+      const result = document.getElementById('player-result');
+      const errEl = document.getElementById('player-error');
+
+      result.classList.remove('visible');
+      errEl.style.display = 'none';
+
+      if (!input) {
+        errEl.textContent = 'Please enter a TruckersMP ID or SteamID64.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      result.innerHTML = '<div class="loading">Looking up player…</div>';
+      result.classList.add('visible');
+
+      try {
+        const res = await fetch(`${API}/player/${encodeURIComponent(input)}`);
+        const data = await res.json();
+
+        if (data.error || !data.response) {
+          result.classList.remove('visible');
+          errEl.textContent = 'Player not found.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        const p = data.response;
+        const banned = p.banned;
+        const groupColor = p.groupColor || '#8b9bb8';
+
+        result.innerHTML = `
+          ${banned ? `<div class="banned-banner">⛔ This player is currently banned${p.bannedUntil ? ` until ${p.bannedUntil}` : ''}.</div>` : ''}
+          <div class="player-header">
+            <img class="player-avatar" src="${p.avatar || p.smallAvatar || ''}" alt="" onerror="this.style.display='none'" />
+            <div>
+              <div class="player-name">${escapeHtml(p.name)}</div>
+              <div class="player-id">TMP #${p.id} · Steam ${p.steamID64 || p.steamID || '—'}</div>
+              <span class="player-group" style="background:${groupColor}22;color:${groupColor};border:1px solid ${groupColor}55;">
+                ${escapeHtml(p.groupName || 'Player')}
+              </span>
+            </div>
+          </div>
+          <div class="player-grid">
+            <div class="info-item">
+              <div class="label">Joined</div>
+              <div class="val">${p.joinDate ? p.joinDate.split(' ')[0] : '—'}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Bans</div>
+              <div class="val">${p.bansCount ?? '—'}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">VTC</div>
+              <div class="val">${p.vtc && p.vtc.inVTC ? escapeHtml(p.vtc.name || p.vtc.tag || 'Yes') : 'None'}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Staff</div>
+              <div class="val">${p.permissions?.isStaff || p.permissions?.isGameAdmin ? 'Yes' : 'No'}</div>
+            </div>
+          </div>
+        `;
+        setLastUpdate();
+      } catch (err) {
+        result.classList.remove('visible');
+        errEl.textContent = 'Lookup failed. Please try again.';
+        errEl.style.display = 'block';
+        console.error(err);
+      }
+    }
+
+    async function loadEvents() {
+      const container = document.getElementById('events-container');
+      try {
+        const res = await fetch(`${API}/events`);
+        const data = await res.json();
+        if (data.error) throw new Error('API error');
+
+        const r = data.response || {};
+        const groups = [
+          { key: 'now', title: 'Happening Now' },
+          { key: 'today', title: 'Today' },
+          { key: 'featured', title: 'Featured' },
+          { key: 'upcoming', title: 'Upcoming' }
+        ];
+
+        let html = '';
+        let hasAny = false;
+
+        for (const g of groups) {
+          const list = r[g.key] || [];
+          if (!list.length) continue;
+          hasAny = true;
+          html += `<h3 style="font-size:0.95rem;color:var(--text-muted);margin:1.25rem 0 0.6rem;font-weight:600;">${g.title}</h3>`;
+          html += '<div class="events-list">';
+          html += list.slice(0, 12).map(e => {
+            const start = e.start_at || e.meetup_at || '';
+            return `
+              <div class="event-card">
+                ${e.banner ? `<img class="event-banner" src="${e.banner}" alt="" loading="lazy" />` : ''}
+                <div class="event-info">
+                  <div class="event-name">${escapeHtml(e.name)}</div>
+                  <div class="event-meta">
+                    <span>${e.game || ''}</span>
+                    ${e.server?.name ? `<span>${escapeHtml(e.server.name)}</span>` : ''}
+                    ${start ? `<span>${start}</span>` : ''}
+                    ${e.departure?.city ? `<span>${escapeHtml(e.departure.city)} → ${escapeHtml(e.arrive?.city || '?')}</span>` : ''}
+                  </div>
+                </div>
+                ${e.url ? `<a class="event-link" href="${e.url}" target="_blank" rel="noopener">View →</a>` : ''}
+              </div>
+            `;
+          }).join('');
+          html += '</div>';
+        }
+
+        container.innerHTML = hasAny ? html : '<div class="empty">No events found.</div>';
+        setLastUpdate();
+      } catch (err) {
+        container.innerHTML = '<div class="error">Failed to load events.</div>';
+        console.error(err);
+      }
+    }
+
+    function minutesToGameTime(minutes) {
+      // Game time is minutes since a fixed epoch. Convert to HH:MM (24h day cycle assumed ~1440 min)
+      const totalMins = minutes % 1440;
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+
+    async function loadGameTime() {
+      try {
+        const res = await fetch(`${API}/game_time`);
+        const data = await res.json();
+        if (data.error) throw new Error('API error');
+
+        const mins = data.game_time;
+        document.getElementById('game-clock').textContent = minutesToGameTime(mins);
+        document.getElementById('game-time-raw').textContent = `Raw value: ${mins.toLocaleString()} minutes`;
+        setLastUpdate();
+      } catch (err) {
+        document.getElementById('game-clock').textContent = '—';
+        document.getElementById('game-time-raw').textContent = 'Failed to load';
+        console.error(err);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Initial load + auto-refresh every 60s for servers
+    loadServers();
+    loadEvents();
+    loadGameTime();
+    setInterval(loadServers, 60000);
+  </script>
+</body>
+</html>
