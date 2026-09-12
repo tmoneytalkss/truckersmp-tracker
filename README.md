@@ -4,58 +4,30 @@ Live server status, player lookup, events and in-game time for [TruckersMP](http
 
 **Live site:** https://tmoneytalkss.github.io/truckersmp-tracker/
 
-## Why data sometimes fails to load
+## How it works
 
-The official TruckersMP API does **not** send CORS headers. Browsers therefore block direct requests from GitHub Pages (and any other website). Free public CORS proxies are often rate-limited or offline, so the page may show a CORS error.
+The TruckersMP API blocks browser requests (no CORS headers).  
+This site therefore:
 
-### Permanent free fix (recommended, ~2 minutes)
+1. Stores live data as JSON files in `data/`
+2. A **GitHub Action** updates those files every 5 minutes
+3. The page loads `./data/*.json` from the same origin → **no CORS problems**
 
-1. Go to [Cloudflare Workers](https://workers.cloudflare.com/) and create a free account if needed.
-2. Create a new Worker and paste this code:
+Player lookup still tries the live API (may fail due to CORS).
 
-```js
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    const target = url.searchParams.get('url');
-    if (!target || !target.startsWith('https://api.truckersmp.com/')) {
-      return new Response('Missing or invalid url param', { status: 400 });
-    }
-    const res = await fetch(target, {
-      headers: { 'User-Agent': 'TruckersMP-Tracker-Proxy' }
-    });
-    const body = await res.arrayBuffer();
-    return new Response(body, {
-      status: res.status,
-      headers: {
-        'Content-Type': res.headers.get('Content-Type') || 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=30'
-      }
-    });
-  }
-};
-```
+## Enable automatic updates
 
-3. Deploy the Worker and copy its URL (e.g. `https://tmp-proxy.yourname.workers.dev`).
-4. In `index.html`, change the `PROXIES` array so your Worker is first:
-
-```js
-const PROXIES = [
-  (url) => `https://tmp-proxy.yourname.workers.dev/?url=${encodeURIComponent(url)}`,
-];
-```
-
-5. Commit & push — the tracker will work reliably.
+1. Open the repo → **Actions** tab
+2. Enable workflows if prompted
+3. Run **Update TruckersMP data** manually once (or wait for the schedule)
 
 ## Features
 
-- Live server list with player counts, queues and capacity bars
-- Player lookup (TMP ID or SteamID64)
+- Live server list with player counts & capacity bars
 - Events (now / today / featured / upcoming)
 - Approximate in-game time
-- Auto-refresh every 60s for servers
-- Dark futuristic UI, mobile-friendly
+- Player lookup (best-effort)
+- Dark futuristic UI
 
 ## License
 
